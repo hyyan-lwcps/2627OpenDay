@@ -1,0 +1,1696 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>聖誕奇妙書屋｜AI 互動聖誕繪本</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- QRCode.js 用於即時生成家長帶走繪本的專屬二維碼 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <!-- Google Fonts: 圓潤適合兒童閱讀的繁體中文字體 -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --xmas-red: #C81D25;
+      --xmas-dark-red: #8E1118;
+      --xmas-green: #164A32;
+      --xmas-forest: #0E3322;
+      --xmas-gold: #F4C44E;
+      --xmas-cream: #FFFDF7;
+    }
+
+    body {
+      font-family: 'Zen Maru Gothic', 'Noto Sans TC', sans-serif;
+      background: radial-gradient(circle at top, #1D5B3E 0%, #0D2E1F 65%, #071C12 100%);
+      color: #2D2A26;
+      min-height: 100vh;
+      overflow-x: hidden;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* 飄雪背景畫布 */
+    #snow-canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .app-container {
+      position: relative;
+      z-index: 10;
+    }
+
+    /* 聖誕燈串裝飾 */
+    .fairy-lights {
+      display: flex;
+      justify-content: space-around;
+      padding: 6px 0;
+      overflow: hidden;
+    }
+    .bulb {
+      width: 12px;
+      height: 16px;
+      border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+      animation: twinkle 1.8s infinite alternate;
+    }
+    .bulb:nth-child(4n+1) { background: #FFD166; box-shadow: 0 0 12px #FFD166; animation-delay: 0s; }
+    .bulb:nth-child(4n+2) { background: #EF476F; box-shadow: 0 0 12px #EF476F; animation-delay: 0.4s; }
+    .bulb:nth-child(4n+3) { background: #06D6A0; box-shadow: 0 0 12px #06D6A0; animation-delay: 0.8s; }
+    .bulb:nth-child(4n+4) { background: #4CC9F0; box-shadow: 0 0 12px #4CC9F0; animation-delay: 1.2s; }
+
+    @keyframes twinkle {
+      0% { opacity: 0.45; transform: scale(0.92); }
+      100% { opacity: 1; transform: scale(1.1); }
+    }
+
+    /* 數碼扭蛋轉盤樣式 */
+    .reel-window {
+      background: linear-gradient(180deg, #E8DFC8 0%, #FFFDF7 22%, #FFFDF7 78%, #E8DFC8 100%);
+      box-shadow: inset 0 6px 12px rgba(0,0,0,0.18), 0 4px 10px rgba(0,0,0,0.2);
+      border: 3px solid #D4A338;
+    }
+
+    .reel-spinning {
+      animation: reelPulse 0.14s infinite alternate;
+    }
+
+    @keyframes reelPulse {
+      0% { transform: translateY(-4px) scale(0.97); filter: blur(0.6px); }
+      100% { transform: translateY(4px) scale(1.02); filter: blur(0px); }
+    }
+
+    .pop-in {
+      animation: popIn 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    }
+
+    @keyframes popIn {
+      0% { opacity: 0; transform: scale(0.8) translateY(12px); }
+      100% { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    /* =====================================================================
+       實體精裝書中軸 3D 立體翻頁舞台 (Hardcover 3D Book Flip)
+       ===================================================================== */
+    .book-stage {
+      perspective: 2200px;
+    }
+
+    .hardcover-book {
+      position: relative;
+      background: #6B1E14; /* 精裝硬殼書皮邊框色 */
+      padding: 8px 10px 12px 10px;
+      border-radius: 22px;
+      box-shadow:
+        0 26px 55px rgba(0, 0, 0, 0.55),
+        0 0 0 3px #D4A338,
+        inset 0 2px 6px rgba(255, 255, 255, 0.25);
+    }
+
+    /* 紙張疊層厚度質感 */
+    .book-pages-stack {
+      position: relative;
+      background: var(--xmas-cream);
+      border-radius: 14px;
+      box-shadow:
+        0 4px 0 #EAE1CE,
+        0 7px 0 #DFD3BC,
+        0 10px 18px rgba(0, 0, 0, 0.35);
+      transform-style: preserve-3d;
+    }
+
+    /* 雙欄對開時中央書脊凹槽與立體陰影 */
+    @media (min-width: 768px) {
+      .book-spine-crease {
+        position: relative;
+      }
+      .book-spine-crease::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 50%;
+        width: 44px;
+        transform: translateX(-50%);
+        background: linear-gradient(
+          90deg,
+          rgba(0, 0, 0, 0) 0%,
+          rgba(62, 42, 18, 0.08) 32%,
+          rgba(38, 24, 8, 0.24) 49%,
+          rgba(255, 255, 255, 0.35) 50%,
+          rgba(38, 24, 8, 0.20) 51%,
+          rgba(62, 42, 18, 0.06) 68%,
+          rgba(0, 0, 0, 0) 100%
+        );
+        pointer-events: none;
+        z-index: 25;
+      }
+    }
+
+    /* 動態 3D 翻頁覆蓋層（覆蓋在右半頁或全頁上進行 180 度真實翻轉） */
+    .flipping-sheet {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      right: 0;
+      width: 100%;
+      transform-origin: left center;
+      transform-style: preserve-3d;
+      pointer-events: none;
+      z-index: 40;
+      border-radius: 0 14px 14px 0;
+      box-shadow: -8px 0 24px rgba(0, 0, 0, 0.25);
+    }
+
+    @media (min-width: 768px) {
+      .flipping-sheet {
+        width: 50%;
+      }
+    }
+
+    .flipping-sheet-front,
+    .flipping-sheet-back {
+      position: absolute;
+      inset: 0;
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+      border-radius: inherit;
+      overflow: hidden;
+    }
+
+    .flipping-sheet-front {
+      background: #FFFDF7;
+      border-left: 1px solid rgba(180, 150, 100, 0.3);
+    }
+
+    /* 書頁翻過去時的紙張背面光影 */
+    .flipping-sheet-back {
+      background: linear-gradient(90deg, #F3EAD6 0%, #FFFDF7 35%, #F6EFE0 100%);
+      transform: rotateY(180deg);
+      border-right: 1px solid rgba(180, 150, 100, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* 翻頁動態光影遮罩 */
+    .flip-shade {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0) 40%);
+      opacity: 0;
+      transition: opacity 0.65s ease;
+    }
+
+    /* 向下一頁翻轉動畫（由右向左 0deg -> -180deg） */
+    @keyframes flipForward3D {
+      0% {
+        transform: rotateY(0deg);
+        box-shadow: -4px 4px 15px rgba(0,0,0,0.18);
+      }
+      45% {
+        box-shadow: -22px 12px 38px rgba(0,0,0,0.38);
+      }
+      100% {
+        transform: rotateY(-180deg);
+        box-shadow: 4px 4px 15px rgba(0,0,0,0.15);
+      }
+    }
+
+    /* 向上一頁翻轉動畫（由左向右 -180deg -> 0deg） */
+    @keyframes flipBackward3D {
+      0% {
+        transform: rotateY(-180deg);
+        box-shadow: 4px 4px 15px rgba(0,0,0,0.15);
+      }
+      45% {
+        box-shadow: -22px 12px 38px rgba(0,0,0,0.38);
+      }
+      100% {
+        transform: rotateY(0deg);
+        box-shadow: -4px 4px 15px rgba(0,0,0,0.18);
+      }
+    }
+
+    .animate-flip-forward {
+      animation: flipForward3D 0.68s cubic-bezier(0.38, 0.05, 0.22, 1) forwards;
+    }
+
+    .animate-flip-backward {
+      animation: flipBackward3D 0.68s cubic-bezier(0.38, 0.05, 0.22, 1) forwards;
+    }
+
+    /* 右下角書角微捲提示（Hover/Touch 暗示可翻頁） */
+    .page-corner-hint {
+      position: absolute;
+      bottom: 0;
+      right: 0;
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, transparent 50%, rgba(212, 163, 56, 0.35) 52%, #F3E5C2 65%, #FFFDF7 100%);
+      border-top-left-radius: 10px;
+      box-shadow: -2px -2px 6px rgba(0,0,0,0.1);
+      pointer-events: none;
+      transition: all 0.25s ease;
+    }
+    .book-pages-stack:hover .page-corner-hint {
+      width: 48px;
+      height: 48px;
+    }
+
+    /* 立體發光按鈕 */
+    .btn-gold {
+      background: linear-gradient(180deg, #FFE082 0%, #F4B936 55%, #D99B1E 100%);
+      color: #4A2500;
+      box-shadow: 0 6px 0 #9E6B0B, 0 12px 24px rgba(0,0,0,0.3);
+      transition: all 0.12s ease;
+    }
+    .btn-gold:active {
+      transform: translateY(4px);
+      box-shadow: 0 2px 0 #9E6B0B, 0 6px 12px rgba(0,0,0,0.3);
+    }
+
+    .btn-red {
+      background: linear-gradient(180deg, #E63946 0%, #C81D25 65%, #9B1118 100%);
+      color: #FFFFFF;
+      box-shadow: 0 6px 0 #6B090E, 0 12px 24px rgba(0,0,0,0.3);
+      transition: all 0.12s ease;
+    }
+    .btn-red:active {
+      transform: translateY(4px);
+      box-shadow: 0 2px 0 #6B090E, 0 6px 12px rgba(0,0,0,0.3);
+    }
+
+    /* 自訂訊息提示框（取代 alert） */
+    #toast-box {
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+  </style>
+</head>
+<body class="selection:bg-amber-200 selection:text-red-900">
+
+  <!-- 飄雪特效畫布 -->
+  <canvas id="snow-canvas"></canvas>
+
+  <!-- 頂部聖誕燈串 -->
+  <div class="fairy-lights app-container">
+    <span class="bulb"></span><span class="bulb"></span><span class="bulb"></span><span class="bulb"></span>
+    <span class="bulb"></span><span class="bulb"></span><span class="bulb"></span><span class="bulb"></span>
+    <span class="bulb"></span><span class="bulb"></span><span class="bulb"></span><span class="bulb"></span>
+    <span class="bulb"></span><span class="bulb"></span><span class="bulb"></span><span class="bulb"></span>
+  </div>
+
+  <!-- 提示訊息框 (Toast) -->
+  <div id="toast-box" class="fixed top-5 left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-0 -translate-y-4">
+    <div id="toast-text" class="bg-amber-100 border-2 border-amber-500 text-amber-950 font-bold px-6 py-3 rounded-full shadow-2xl text-base md:text-lg flex items-center gap-2">
+      <span>🎄</span><span>提示訊息</span>
+    </div>
+  </div>
+
+  <!-- 主容器 -->
+  <main class="app-container max-w-5xl mx-auto px-4 pb-12 pt-2">
+
+    <!-- 頂部校本活動標題列 -->
+    <header class="text-center mb-6">
+      <div class="inline-flex items-center gap-2 bg-white/15 backdrop-blur-md border border-amber-300/40 text-amber-200 px-4 py-1.5 rounded-full text-sm md:text-base font-bold mb-2 shadow">
+        <span>✨ AI 賦能閱讀體驗攤位</span>
+        <span>•</span>
+        <span>12月12日開放日</span>
+      </div>
+      <h1 class="text-3xl sm:text-4xl md:text-5xl font-black text-amber-300 tracking-wider drop-shadow-[0_4px_10px_rgba(0,0,0,0.5)]">
+        🎄 聖誕奇妙書屋 📚
+      </h1>
+    </header>
+
+    <!-- =========================================================
+         視圖一：攤位 iPad 服務生控制台（無 URL 參數時預設顯示）
+         ========================================================= -->
+    <section id="console-view" class="max-w-2xl mx-auto">
+      <div class="bg-[#FFFDF7] rounded-3xl p-6 sm:p-8 shadow-2xl border-4 border-amber-400 relative overflow-hidden">
+        <!-- 角落裝飾 -->
+        <div class="absolute -top-6 -right-6 text-6xl opacity-15 pointer-events-none select-none">❄️</div>
+        <div class="absolute -bottom-6 -left-6 text-6xl opacity-15 pointer-events-none select-none">🎁</div>
+
+        <!-- 步驟 1：輸入小朋友名字 -->
+        <div class="mb-7">
+          <label for="child-name-input" class="block text-lg sm:text-xl font-black text-[#164A32] mb-2 flex items-center gap-2">
+            <span class="bg-[#C81D25] text-white w-7 h-7 rounded-full inline-flex items-center justify-center text-sm">1</span>
+            請輸入小作家的名字：
+          </label>
+          <div class="flex gap-2">
+            <input
+              type="text"
+              id="child-name-input"
+              maxlength="12"
+              placeholder="例如：梓軒、晴晴、Leo..."
+              class="w-full text-xl sm:text-2xl font-bold px-5 py-3.5 rounded-2xl border-3 border-amber-300 bg-amber-50/70 text-gray-800 focus:outline-none focus:border-[#C81D25] focus:bg-white transition shadow-inner"
+            />
+          </div>
+        </div>
+
+        <!-- 步驟 2：數碼聖誕扭蛋機 -->
+        <div class="mb-6">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-lg sm:text-xl font-black text-[#164A32] flex items-center gap-2">
+              <span class="bg-[#C81D25] text-white w-7 h-7 rounded-full inline-flex items-center justify-center text-sm">2</span>
+              轉動數碼扭蛋，抽出尋寶任務！
+            </h2>
+            <span class="text-xs font-bold bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full">
+              智能防重複已開啟
+            </span>
+          </div>
+
+          <!-- 扭蛋機外框 -->
+          <div class="bg-gradient-to-b from-[#C81D25] to-[#8E1118] p-4 sm:p-5 rounded-3xl shadow-xl border-4 border-amber-300">
+            <div class="grid grid-cols-3 gap-2.5 sm:gap-4 mb-4">
+              <!-- 轉盤 1：聖誕夥伴 -->
+              <div class="text-center">
+                <div class="text-xs sm:text-sm font-bold text-amber-200 mb-1.5 tracking-wide">聖誕夥伴</div>
+                <div id="reel-partner" class="reel-window rounded-2xl h-28 sm:h-36 flex flex-col items-center justify-center p-2">
+                  <span id="reel-partner-icon" class="text-4xl sm:text-5xl mb-1">❓</span>
+                  <span id="reel-partner-text" class="text-xs sm:text-base font-black text-gray-700 leading-tight">等待抽選</span>
+                </div>
+              </div>
+
+              <!-- 轉盤 2：奇幻地點 -->
+              <div class="text-center">
+                <div class="text-xs sm:text-sm font-bold text-amber-200 mb-1.5 tracking-wide">奇幻地點</div>
+                <div id="reel-location" class="reel-window rounded-2xl h-28 sm:h-36 flex flex-col items-center justify-center p-2">
+                  <span id="reel-location-icon" class="text-4xl sm:text-5xl mb-1">❓</span>
+                  <span id="reel-location-text" class="text-xs sm:text-base font-black text-gray-700 leading-tight">等待抽選</span>
+                </div>
+              </div>
+
+              <!-- 轉盤 3：遺失寶物 -->
+              <div class="text-center">
+                <div class="text-xs sm:text-sm font-bold text-amber-200 mb-1.5 tracking-wide">遺失寶物</div>
+                <div id="reel-item" class="reel-window rounded-2xl h-28 sm:h-36 flex flex-col items-center justify-center p-2">
+                  <span id="reel-item-icon" class="text-4xl sm:text-5xl mb-1">❓</span>
+                  <span id="reel-item-text" class="text-xs sm:text-base font-black text-gray-700 leading-tight">等待抽選</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 扭蛋啟動按鈕 -->
+            <button
+              id="spin-btn"
+              type="button"
+              onclick="spinGacha()"
+              class="btn-gold w-full py-4 rounded-2xl font-black text-xl sm:text-2xl flex items-center justify-center gap-3 cursor-pointer select-none"
+            >
+              <span class="text-2xl sm:text-3xl">🎰</span>
+              <span id="spin-btn-label">轉動聖誕魔法扭蛋！</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 抽選結果與開啟繪本按鈕（抽完後顯示） -->
+        <div id="result-panel" class="hidden pop-in bg-amber-50 border-2 border-amber-400 rounded-2xl p-4 sm:p-5 text-center">
+          <div class="text-sm font-bold text-amber-800 mb-1">✨ 成功配對專屬聖誕繪本（編號 #<span id="matched-story-id">01</span>）</div>
+          <div id="matched-story-title" class="text-xl sm:text-2xl font-black text-[#C81D25] mb-4">
+            《魔法圖書館的金色鈴鐺》
+          </div>
+          
+          <div class="flex flex-col sm:flex-row gap-3">
+            <button
+              type="button"
+              onclick="spinGacha()"
+              class="sm:w-1/3 py-3.5 px-4 rounded-xl font-bold text-base bg-white border-2 border-gray-300 text-gray-700 hover:bg-gray-100 active:scale-95 transition cursor-pointer"
+            >
+              🔄 重新抽選
+            </button>
+            <button
+              type="button"
+              onclick="launchStorybook()"
+              class="btn-red sm:w-2/3 py-3.5 px-6 rounded-xl font-black text-lg sm:text-xl flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <span>📖 開啟我的專屬聖誕繪本</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 服務生快速提示列 -->
+        <div class="mt-5 pt-4 border-t border-amber-200/80 flex flex-wrap items-center justify-between text-xs text-gray-500 gap-2">
+          <span>💡 服務生小貼士：邀請小朋友親手按下金色按鈕轉動扭蛋！</span>
+          <button type="button" onclick="quickPreviewStory01()" class="underline text-emerald-700 hover:text-emerald-900 font-bold cursor-pointer">
+            直接預覽繪本 #01 效果
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- =========================================================
+         視圖二：個人化聖誕邀請函 ＋ 中軸 3D 立體翻頁有聲繪本 ＋ QR Code
+         ========================================================= -->
+    <section id="storybook-view" class="hidden">
+
+      <!-- 頂部功能操作列（音效控制 ＋ 家長 QR Code ＋ 返回控制台） -->
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-4 bg-white/10 backdrop-blur-md p-3 rounded-2xl border border-white/20">
+        <button
+          type="button"
+          onclick="returnToConsole()"
+          class="bg-white/90 hover:bg-white text-gray-800 font-bold px-3.5 py-2 rounded-xl text-sm sm:text-base flex items-center gap-1.5 shadow active:scale-95 transition cursor-pointer"
+        >
+          <span>⬅️</span>
+          <span>下一位小朋友</span>
+        </button>
+
+        <div class="flex flex-wrap items-center gap-2">
+          <!-- 背景音樂開關 -->
+          <button
+            id="bgm-toggle-btn"
+            type="button"
+            onclick="toggleBGM()"
+            class="bg-emerald-800/90 hover:bg-emerald-700 text-amber-200 border border-amber-300/40 font-bold px-3.5 py-2 rounded-xl text-sm sm:text-base flex items-center gap-1.5 shadow active:scale-95 transition cursor-pointer"
+          >
+            <span id="bgm-icon">🔇</span>
+            <span id="bgm-label">背景音樂：關</span>
+          </button>
+
+          <!-- 語音朗讀按鈕 -->
+          <button
+            id="voice-toggle-btn"
+            type="button"
+            onclick="toggleReadAloud()"
+            class="bg-amber-400 hover:bg-amber-300 text-amber-950 font-black px-3.5 py-2 rounded-xl text-sm sm:text-base flex items-center gap-1.5 shadow active:scale-95 transition cursor-pointer"
+          >
+            <span id="voice-icon">🗣️</span>
+            <span id="voice-label">朗讀本頁</span>
+          </button>
+
+          <!-- 家長掃碼帶走按鈕 -->
+          <button
+            type="button"
+            onclick="openQrModal()"
+            class="bg-[#C81D25] hover:bg-red-600 text-white font-black px-4 py-2 rounded-xl text-sm sm:text-base flex items-center gap-1.5 shadow-lg border border-amber-300/60 active:scale-95 transition cursor-pointer"
+          >
+            <span>📱</span>
+            <span>家長掃碼帶走繪本</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 個人化聖誕老人邀請函橫幅 -->
+      <div class="bg-gradient-to-r from-[#FFFDF7] via-[#FFF6E0] to-[#FFFDF7] border-4 border-amber-400 rounded-3xl p-4 sm:p-6 mb-6 shadow-xl relative overflow-hidden">
+        <div class="flex flex-col sm:flex-row items-center gap-4">
+          <div class="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-[#C81D25] text-white flex items-center justify-center text-4xl sm:text-5xl shrink-0 shadow-md border-2 border-amber-300">
+            🎅
+          </div>
+          <div class="text-center sm:text-left flex-1">
+            <div class="inline-block bg-[#C81D25] text-white text-xs font-bold px-3 py-0.5 rounded-full mb-1">
+              來自北極圖書館的聖誕魔法邀請函
+            </div>
+            <p id="invitation-text" class="text-base sm:text-xl font-bold text-gray-800 leading-relaxed">
+              Ho Ho Ho！親愛的 <span class="text-[#C81D25] font-black underline decoration-amber-400 decoration-4">小朋友</span>，聖誕老人需要你的幫忙！請跟隨 <span class="text-emerald-800 font-black">紅鼻子馴鹿</span> 前往 <span class="text-emerald-800 font-black">魔法圖書館</span>，一起尋找 <span class="text-amber-700 font-black">發光金色鈴鐺</span> 吧！
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 實體精裝書中軸 3D 立體翻頁閱讀器主體 -->
+      <div class="book-stage max-w-4xl mx-auto">
+        <div class="hardcover-book">
+          <div id="book-pages-stack" class="book-pages-stack book-spine-crease overflow-hidden">
+            
+            <!-- 繪本頂部精裝書眉欄 -->
+            <div class="bg-[#164A32] text-amber-200 px-5 py-3 flex items-center justify-between border-b-2 border-amber-400 relative z-30">
+              <div class="flex items-center gap-2 font-black text-base sm:text-lg truncate">
+                <span>📖</span>
+                <span id="book-header-title">《魔法圖書館的金色鈴鐺》</span>
+              </div>
+              <div class="text-xs sm:text-sm font-bold bg-black/25 px-3 py-1 rounded-full shrink-0">
+                小讀者：<span id="book-header-reader" class="text-white">小朋友</span>
+              </div>
+            </div>
+
+            <!-- 雙欄對開內容區（左頁插畫、右頁故事文字，中央書脊凹槽） -->
+            <div id="book-touch-area" class="grid grid-cols-1 md:grid-cols-2 min-h-[430px] sm:min-h-[470px] relative">
+              
+              <!-- 左頁：插畫展示區（點擊左半邊可翻回上一頁） -->
+              <div
+                onclick="handleLeftPageClick()"
+                title="點擊翻回上一頁"
+                class="bg-[#F6EFE0] p-4 sm:p-6 flex items-center justify-center relative border-b md:border-b-0 border-amber-200 cursor-pointer group"
+              >
+                <div class="w-full max-w-[340px] aspect-[3/4] rounded-2xl overflow-hidden shadow-lg border-4 border-white bg-amber-100 relative">
+                  <img
+                    id="page-illustration"
+                    src=""
+                    alt="繪本插畫"
+                    class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+                  />
+                  <!-- 頁碼角標 -->
+                  <div class="absolute bottom-2.5 left-2.5 bg-black/60 backdrop-blur-sm text-white text-xs font-bold px-2.5 py-1 rounded-full">
+                    第 <span id="img-page-num">1</span> 幕
+                  </div>
+                </div>
+              </div>
+
+              <!-- 右頁：故事文字與互動區（點擊文字區亦可翻下一頁） -->
+              <div class="p-6 sm:p-8 md:p-10 flex flex-col justify-between bg-[#FFFDF7] relative">
+                <div onclick="handleRightTextClick()" class="cursor-pointer flex-1">
+                  <div class="flex items-center justify-between mb-4">
+                    <span id="page-badge" class="bg-amber-200/80 text-amber-950 font-black text-xs sm:text-sm px-3 py-1 rounded-full">
+                      第 1 頁 / 共 4 頁
+                    </span>
+                    <span id="page-elements-tag" class="text-xs font-bold text-gray-400">
+                      🦌 紅鼻子馴鹿 • 📚 魔法圖書館
+                    </span>
+                  </div>
+
+                  <!-- 故事大字體內文 -->
+                  <p id="page-story-text" class="text-xl sm:text-2xl md:text-[26px] font-bold text-gray-800 leading-[1.78] tracking-wide mt-4 select-none">
+                    叮叮噹！雪花飄呀飄，我推開魔法圖書館的大門，高高的書架上掛滿了閃閃發亮的聖誕燈飾！
+                  </p>
+                </div>
+
+                <!-- 底部引導與頁碼圓點 -->
+                <div class="mt-8 pt-4 border-t border-amber-200/70 relative z-30">
+                  <div class="flex items-center justify-center gap-2.5 mb-4" id="page-dots">
+                    <span class="w-3 h-3 rounded-full bg-[#C81D25]"></span>
+                    <span class="w-3 h-3 rounded-full bg-amber-200"></span>
+                    <span class="w-3 h-3 rounded-full bg-amber-200"></span>
+                    <span class="w-3 h-3 rounded-full bg-amber-200"></span>
+                  </div>
+
+                  <!-- 翻頁控制按鈕 -->
+                  <div class="grid grid-cols-2 gap-3">
+                    <button
+                      id="prev-page-btn"
+                      type="button"
+                      onclick="changePage(-1)"
+                      class="py-3.5 px-4 rounded-2xl font-black text-base sm:text-lg bg-amber-100 hover:bg-amber-200 text-amber-950 disabled:opacity-40 disabled:pointer-events-none transition flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <span>◀</span>
+                      <span>上一頁</span>
+                    </button>
+
+                    <button
+                      id="next-page-btn"
+                      type="button"
+                      onclick="changePage(1)"
+                      class="btn-red py-3.5 px-4 rounded-2xl font-black text-base sm:text-lg flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <span id="next-btn-text">下一頁</span>
+                      <span>▶</span>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- 右下角實體書角微捲視覺暗示 -->
+                <div id="page-corner-hint" class="page-corner-hint"></div>
+              </div>
+
+              <!-- 3D 立體翻頁動畫專用書頁層（動態生成並沿中央書脊 180 度翻轉） -->
+              <div id="flip-animation-layer" class="hidden"></div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 底部家長分享 QR Code 卡片（方便在旁觀望的家長隨時掃描） -->
+      <div class="max-w-4xl mx-auto mt-6 bg-white/95 rounded-3xl p-5 sm:p-6 shadow-xl border-3 border-amber-400 flex flex-col sm:flex-row items-center justify-between gap-5">
+        <div class="text-center sm:text-left">
+          <div class="inline-flex items-center gap-1.5 text-xs font-black bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full mb-2">
+            <span>🎁 親子共讀紀念品</span>
+          </div>
+          <h3 class="text-xl font-black text-gray-900 mb-1">
+            把 <span id="qr-card-name" class="text-[#C81D25]">小朋友</span> 的專屬聖誕繪本帶回家！
+          </h3>
+          <p class="text-sm sm:text-base text-gray-600">
+            歡迎家長用手機相機掃描右側 QR Code，即可在手機隨時重溫這本有聲聖誕繪本並分享給親友。
+          </p>
+        </div>
+        <div class="bg-white p-3 rounded-2xl border-2 border-amber-300 shadow-inner shrink-0 flex flex-col items-center">
+          <div id="inline-qrcode"></div>
+          <span class="text-[11px] font-bold text-gray-400 mt-1">掃描開啟專屬連結</span>
+        </div>
+      </div>
+
+    </section>
+  </main>
+
+  <!-- =========================================================
+       彈窗：放大版 QR Code（點擊頂部「家長掃碼帶走繪本」時開啟）
+       ========================================================= -->
+  <div id="qr-modal" class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm hidden items-center justify-center p-4" onclick="closeQrModal(event)">
+    <div class="bg-[#FFFDF7] border-4 border-amber-400 rounded-3xl max-w-sm w-full p-6 text-center shadow-2xl pop-in" onclick="event.stopPropagation()">
+      <div class="text-3xl mb-1">🎄📱✨</div>
+      <h3 class="text-2xl font-black text-[#164A32] mb-1">
+        <span id="modal-child-name" class="text-[#C81D25]">小朋友</span> 的專屬繪本
+      </h3>
+      <p class="text-sm text-gray-600 mb-4">請家長使用手機相機掃描下方二維碼</p>
+      
+      <div class="bg-white p-4 rounded-2xl border-2 border-amber-300 inline-block shadow-md mb-4">
+        <div id="modal-qrcode"></div>
+      </div>
+
+      <div class="flex flex-col gap-2">
+        <button
+          type="button"
+          onclick="copyShareLink()"
+          class="w-full py-2.5 px-4 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-950 font-bold text-sm transition cursor-pointer"
+        >
+          📋 複製繪本專屬網址
+        </button>
+        <button
+          type="button"
+          onclick="closeQrModal()"
+          class="w-full py-3 px-4 rounded-xl bg-[#164A32] text-white font-black text-base transition cursor-pointer"
+        >
+          完成並返回繪本
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 隱藏的外部音檔播放器（若你之後在 assets/audio/ 放入真實 MP3 會自動優先播放） -->
+  <audio id="external-bgm-player" loop preload="none"></audio>
+  <audio id="external-voice-player" preload="none"></audio>
+
+  <script>
+    /* =====================================================================
+       一、 8 本第一人稱聖誕尋寶繪本資料庫（2 夥伴 × 2 地點 × 2 寶物）
+       圖片預設路徑為 assets/images/01_1.jpg ~ 08_4.jpg
+       若本地尚未放入圖片，系統會自動產生精緻的內嵌水彩風格插畫作為預覽！
+       ===================================================================== */
+    const PARTNERS = [
+      { id: 'reindeer', icon: '🦌', name: '紅鼻子馴鹿' },
+      { id: 'gingerbread', icon: '🍪', name: '薑餅人' }
+    ];
+
+    const LOCATIONS = [
+      { id: 'library', icon: '📚', name: '魔法圖書館', bgmType: 'library' },
+      { id: 'candy', icon: '🍭', name: '飄雪糖果屋', bgmType: 'candy' }
+    ];
+
+    const ITEMS = [
+      { id: 'bell', icon: '🔔', name: '發光金色鈴鐺' },
+      { id: 'star', icon: '⭐', name: '彩虹許願星' }
+    ];
+
+    const STORIES = {
+      '01': {
+        id: '01',
+        title: '《魔法圖書館的金色鈴鐺》',
+        partner: PARTNERS[0],
+        location: LOCATIONS[0],
+        item: ITEMS[0],
+        pages: [
+          {
+            image: 'assets/images/01_1.jpg',
+            text: '叮叮噹！雪花飄呀飄，我推開魔法圖書館的大門，高高的書架上掛滿了閃閃發亮的聖誕燈飾！'
+          },
+          {
+            image: 'assets/images/01_2.jpg',
+            text: '紅鼻子馴鹿急得跳了起來：「太好了！聖誕老人的金色鈴鐺不見了，沒有它，雪橇就飛不起來啦！你可以幫我一起找嗎？」'
+          },
+          {
+            image: 'assets/images/01_3.jpg',
+            text: '我踮起腳尖，翻開書架上一本會發光的聖誕大書——叮鈴鈴！原來金色鈴鐺正躲在書頁後面睡覺呢！'
+          },
+          {
+            image: 'assets/images/01_4.jpg',
+            text: '聖誕老人和紅鼻子馴鹿對著我豎起大拇指：「謝謝你拯救了聖誕節！祝你聖誕快樂，天天都愛看故事書！」'
+          }
+        ]
+      },
+      '02': {
+        id: '02',
+        title: '《魔法圖書館的彩虹許願星》',
+        partner: PARTNERS[0],
+        location: LOCATIONS[0],
+        item: ITEMS[1],
+        pages: [
+          {
+            image: 'assets/images/02_1.jpg',
+            text: '呼呼吹！我跟著腳印走進溫暖的魔法圖書館，好多故事書正在空中輕輕飛舞，好像在歡迎我！'
+          },
+          {
+            image: 'assets/images/02_2.jpg',
+            text: '紅鼻子馴鹿皺著眉頭說：「糟了！指引雪橇方向的彩虹許願星掉在圖書館裡了，你可以幫我把它找出來嗎？」'
+          },
+          {
+            image: 'assets/images/02_3.jpg',
+            text: '我順著七彩光芒走進閱讀帳篷裡，掀開軟綿綿的抱枕——哇！彩虹許願星正發出「亮晶晶」的光芒！'
+          },
+          {
+            image: 'assets/images/02_4.jpg',
+            text: '聖誕老人把星星放回雪橇上，笑著對我說：「多虧有愛看書的你幫忙！祝你聖誕快樂，夢想成真！」'
+          }
+        ]
+      },
+      '03': {
+        id: '03',
+        title: '《飄雪糖果屋的金色鈴鐺》',
+        partner: PARTNERS[0],
+        location: LOCATIONS[1],
+        item: ITEMS[0],
+        pages: [
+          {
+            image: 'assets/images/03_1.jpg',
+            text: '咔嚓咔嚓！我踩著軟綿綿的白雪，推開了由拐杖糖和朱古力做成的糖果屋大門，空氣裡香噴噴的！'
+          },
+          {
+            image: 'assets/images/03_2.jpg',
+            text: '紅鼻子馴鹿湊過來對我說：「聖誕老人的金色鈴鐺滾進糖果屋裡了，沒有鈴鐺聲，大家就不知道聖誕老人來啦！」'
+          },
+          {
+            image: 'assets/images/03_3.jpg',
+            text: '我走過棉花糖小橋，打開一個大大的餅乾鐵盒——叮鈴鈴！發光的金色鈴鐺就在裡面跳呀跳！'
+          },
+          {
+            image: 'assets/images/03_4.jpg',
+            text: '聖誕老人和紅鼻子馴鹿搖著鈴鐺對我微笑：「叮叮噹！謝謝你找到魔法鈴鐺，聖誕快樂！」'
+          }
+        ]
+      },
+      '04': {
+        id: '04',
+        title: '《飄雪糖果屋的彩虹許願星》',
+        partner: PARTNERS[0],
+        location: LOCATIONS[1],
+        item: ITEMS[1],
+        pages: [
+          {
+            image: 'assets/images/04_1.jpg',
+            text: '哇！天上飄著甜絲絲的糖霜雪花，我走進色彩繽紛的飄雪糖果屋，這裡的聖誕樹掛滿了七彩棒棒糖！'
+          },
+          {
+            image: 'assets/images/04_2.jpg',
+            text: '紅鼻子馴鹿看著天空說：「天色黑漆漆的，沒有彩虹許願星照路，聖誕老人會迷路的，我們快一起找找看！」'
+          },
+          {
+            image: 'assets/images/04_3.jpg',
+            text: '我爬上甜甜圈小山坡，撥開軟乎乎的棉花糖雲朵——唰！彩虹許願星蹦了出來，把整個糖果屋照得亮晶晶！'
+          },
+          {
+            image: 'assets/images/04_4.jpg',
+            text: '聖誕老人駕著發光的雪橇，和紅鼻子馴鹿一起對我揮手：「謝謝你點亮了聖誕夜，祝你聖誕快樂！」'
+          }
+        ]
+      },
+      '05': {
+        id: '05',
+        title: '《薑餅人與圖書館的鈴鐺》',
+        partner: PARTNERS[1],
+        location: LOCATIONS[0],
+        item: ITEMS[0],
+        pages: [
+          {
+            image: 'assets/images/05_1.jpg',
+            text: '躡手躡腳！我輕輕走進安靜又溫暖的魔法圖書館，長長的閱讀桌上擺滿了聖誕立體故事書！'
+          },
+          {
+            image: 'assets/images/05_2.jpg',
+            text: '一隻戴著小圍巾的薑餅人從書本後面跳出來：「你好呀！聖誕老人的金色鈴鐺不見了，你能幫我一起尋寶嗎？」'
+          },
+          {
+            image: 'assets/images/05_3.jpg',
+            text: '我和薑餅人一起翻開一本會唱歌的音樂繪本——叮鈴鈴！金色鈴鐺正掛在立體聖誕樹的樹梢上呢！'
+          },
+          {
+            image: 'assets/images/05_4.jpg',
+            text: '聖誕老人摸摸薑餅人的頭，笑著對我說：「你們真是最佳閱讀小拍檔！祝你聖誕快樂！」'
+          }
+        ]
+      },
+      '06': {
+        id: '06',
+        title: '《薑餅人與圖書館的許願星》',
+        partner: PARTNERS[1],
+        location: LOCATIONS[0],
+        item: ITEMS[1],
+        pages: [
+          {
+            image: 'assets/images/06_1.jpg',
+            text: '沙沙沙！我推開魔法圖書館的木門，發現書架中間有一道七彩的光芒正一閃一閃地眨眼睛！'
+          },
+          {
+            image: 'assets/images/06_2.jpg',
+            text: '可愛的薑餅人跑過來拉拉我的手套：「那是聖誕老人的彩虹許願星！它躲在故事書迷宮裡了，我們快去救它！」'
+          },
+          {
+            image: 'assets/images/06_3.jpg',
+            text: '我順著發光的書籤線索，在圖書館的小地球儀後面輕輕一找——哇！彩虹許願星正笑眯眯地看著我！'
+          },
+          {
+            image: 'assets/images/06_4.jpg',
+            text: '聖誕老人和薑餅人開心地跳起舞來，對我說：「謝謝聰明的小偵探！願你每天都有好故事陪伴，聖誕快樂！」'
+          }
+        ]
+      },
+      '07': {
+        id: '07',
+        title: '《糖果屋裡的金色鈴鐺》',
+        partner: PARTNERS[1],
+        location: LOCATIONS[1],
+        item: ITEMS[0],
+        pages: [
+          {
+            image: 'assets/images/07_1.jpg',
+            text: '叮噹！我來到雪地裡的飄雪糖果屋，屋頂上鋪滿了白雪和彩色的朱古力豆，就像一個大蛋糕！'
+          },
+          {
+            image: 'assets/images/07_2.jpg',
+            text: '糖果屋的小主人薑餅人跑出來迎接我：「歡迎你！聖誕老人剛才掉了一顆金色鈴鐺在屋子裡，你能幫我找找嗎？」'
+          },
+          {
+            image: 'assets/images/07_3.jpg',
+            text: '我在暖呼呼的朱古力壁爐旁仔細尋找，掀開一隻大聖誕襪——叮鈴鈴！金色鈴鐺正躲在裡面取暖呢！'
+          },
+          {
+            image: 'assets/images/07_4.jpg',
+            text: '聖誕老人和薑餅人送上香甜的聖誕曲奇，笑著對我說：「你真是個樂於助人的好孩子，聖誕快樂！」'
+          }
+        ]
+      },
+      '08': {
+        id: '08',
+        title: '《糖果屋裡的彩虹許願星》',
+        partner: PARTNERS[1],
+        location: LOCATIONS[1],
+        item: ITEMS[1],
+        pages: [
+          {
+            image: 'assets/images/08_1.jpg',
+            text: '呼嚕嚕！外面正下著大雪，我推開飄雪糖果屋的玻璃門，屋裡點滿了蠟燭，又溫暖又漂亮！'
+          },
+          {
+            image: 'assets/images/08_2.jpg',
+            text: '薑餅人焦急地轉圈圈：「糟啦！聖誕老人的彩虹許願星掉進糖果罐裡找不到了，沒有它雪橇就沒辦法出發啦！」'
+          },
+          {
+            image: 'assets/images/08_3.jpg',
+            text: '我拿起小木勺，在裝滿七彩糖果的玻璃大罐子裡輕輕撥開糖果——哇！彩虹許願星正閃耀著美麗的光芒！'
+          },
+          {
+            image: 'assets/images/08_4.jpg',
+            text: '聖誕老人和薑餅人一起對我比出愛心手勢：「謝謝你讓聖誕節變得這麼美好！祝你聖誕快樂！」'
+          }
+        ]
+      }
+    };
+
+    /* =====================================================================
+       二、 應用程式狀態與初始化
+       ===================================================================== */
+    let currentState = {
+      childName: '',
+      storyId: null,
+      pageIndex: 0,
+      isSpinning: false,
+      isFlipping: false,
+      bgmPlaying: false,
+      voicePlaying: false
+    };
+
+    window.addEventListener('DOMContentLoaded', () => {
+      initSnowfall();
+      setupSwipeGestures();
+      checkUrlParamsAndRoute();
+    });
+
+    // 檢查網址參數（例如 ?name=梓軒&story=01）
+    function checkUrlParamsAndRoute() {
+      const params = new URLSearchParams(window.location.search);
+      const nameParam = params.get('name');
+      const storyParam = params.get('story');
+
+      if (storyParam && STORIES[storyParam]) {
+        currentState.childName = (nameParam && nameParam.trim()) ? nameParam.trim() : '小作家';
+        currentState.storyId = storyParam;
+        currentState.pageIndex = 0;
+        showStorybookView();
+      } else {
+        showConsoleView();
+      }
+    }
+
+    function showConsoleView() {
+      stopAllAudio();
+      document.getElementById('storybook-view').classList.add('hidden');
+      document.getElementById('console-view').classList.remove('hidden');
+      document.getElementById('child-name-input').value = '';
+      document.getElementById('result-panel').classList.add('hidden');
+      resetReelsDisplay();
+    }
+
+    function resetReelsDisplay() {
+      document.getElementById('reel-partner-icon').textContent = '❓';
+      document.getElementById('reel-partner-text').textContent = '等待抽選';
+      document.getElementById('reel-location-icon').textContent = '❓';
+      document.getElementById('reel-location-text').textContent = '等待抽選';
+      document.getElementById('reel-item-icon').textContent = '❓';
+      document.getElementById('reel-item-text').textContent = '等待抽選';
+    }
+
+    /* =====================================================================
+       三、 數碼聖誕扭蛋機邏輯（含防連續重複機制）
+       ===================================================================== */
+    function spinGacha() {
+      if (currentState.isSpinning) return;
+
+      const nameInput = document.getElementById('child-name-input').value.trim();
+      if (!nameInput) {
+        showToast('請先輸入小朋友的名字喔！✏️');
+        document.getElementById('child-name-input').focus();
+        return;
+      }
+
+      currentState.isSpinning = true;
+      currentState.childName = nameInput;
+
+      const spinBtn = document.getElementById('spin-btn');
+      const spinLabel = document.getElementById('spin-btn-label');
+      spinBtn.disabled = true;
+      spinLabel.textContent = '魔法扭蛋轉動中...';
+      document.getElementById('result-panel').classList.add('hidden');
+
+      // 播放抽獎音效
+      playSpinSound();
+
+      // 加入轉動視覺效果
+      const reels = [
+        document.getElementById('reel-partner'),
+        document.getElementById('reel-location'),
+        document.getElementById('reel-item')
+      ];
+      reels.forEach(r => r.classList.add('reel-spinning'));
+
+      // 模擬轉盤滾動跳字
+      const spinInterval = setInterval(() => {
+        const p = PARTNERS[Math.floor(Math.random() * PARTNERS.length)];
+        const l = LOCATIONS[Math.floor(Math.random() * LOCATIONS.length)];
+        const it = ITEMS[Math.floor(Math.random() * ITEMS.length)];
+
+        document.getElementById('reel-partner-icon').textContent = p.icon;
+        document.getElementById('reel-partner-text').textContent = p.name;
+        document.getElementById('reel-location-icon').textContent = l.icon;
+        document.getElementById('reel-location-text').textContent = l.name;
+        document.getElementById('reel-item-icon').textContent = it.icon;
+        document.getElementById('reel-item-text').textContent = it.name;
+      }, 95);
+
+      // 智能防重複抽選故事 ID（排除上一位小朋友抽中的故事）
+      const allIds = Object.keys(STORIES);
+      const lastDrawnId = localStorage.getItem('xmas_last_story_id');
+      const candidateIds = allIds.filter(id => id !== lastDrawnId && id !== currentState.storyId);
+      const pool = candidateIds.length > 0 ? candidateIds : allIds;
+      const chosenId = pool[Math.floor(Math.random() * pool.length)];
+      const chosenStory = STORIES[chosenId];
+
+      // 1.3 秒後逐一停下揭曉結果
+      setTimeout(() => {
+        clearInterval(spinInterval);
+        reels.forEach(r => r.classList.remove('reel-spinning'));
+
+        // 顯示最終抽中的三個元素
+        document.getElementById('reel-partner-icon').textContent = chosenStory.partner.icon;
+        document.getElementById('reel-partner-text').textContent = chosenStory.partner.name;
+        document.getElementById('reel-location-icon').textContent = chosenStory.location.icon;
+        document.getElementById('reel-location-text').textContent = chosenStory.location.name;
+        document.getElementById('reel-item-icon').textContent = chosenStory.item.icon;
+        document.getElementById('reel-item-text').textContent = chosenStory.item.name;
+
+        playSuccessChime();
+
+        currentState.storyId = chosenId;
+        localStorage.setItem('xmas_last_story_id', chosenId);
+
+        document.getElementById('matched-story-id').textContent = chosenId;
+        document.getElementById('matched-story-title').textContent = chosenStory.title;
+        document.getElementById('result-panel').classList.remove('hidden');
+
+        spinBtn.disabled = false;
+        spinLabel.textContent = '轉動聖誕魔法扭蛋！';
+        currentState.isSpinning = false;
+      }, 1350);
+    }
+
+    // 服務生快速預覽繪本 #01 測試功能
+    function quickPreviewStory01() {
+      const nameInput = document.getElementById('child-name-input').value.trim();
+      currentState.childName = nameInput || '梓軒';
+      currentState.storyId = '01';
+      launchStorybook();
+    }
+
+    // 進入繪本閱讀器並更新網址參數（方便家長掃碼帶走）
+    function launchStorybook() {
+      if (!currentState.storyId) return;
+      const url = new URL(window.location.href);
+      url.searchParams.set('name', currentState.childName);
+      url.searchParams.set('story', currentState.storyId);
+      
+      try {
+        window.history.pushState({}, '', url.toString());
+      } catch (e) {
+        // 在部分沙盒預覽環境若限制 pushState 則忽略錯誤繼續渲染
+      }
+
+      currentState.pageIndex = 0;
+      showStorybookView();
+    }
+
+    function returnToConsole() {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('name');
+      url.searchParams.delete('story');
+      try {
+        window.history.pushState({}, '', url.toString());
+      } catch (e) {}
+      showConsoleView();
+    }
+
+    /* =====================================================================
+       四、 繪本渲染、實體精裝書中軸 3D 立體翻頁引擎與插畫自動備援
+       ===================================================================== */
+    function showStorybookView() {
+      document.getElementById('console-view').classList.add('hidden');
+      document.getElementById('storybook-view').classList.remove('hidden');
+
+      const story = STORIES[currentState.storyId];
+      const name = currentState.childName;
+
+      // 填入個人化邀請函
+      document.getElementById('invitation-text').innerHTML = `
+        Ho Ho Ho！親愛的 <span class="text-[#C81D25] font-black underline decoration-amber-400 decoration-4">${escapeHtml(name)}</span>，聖誕老人需要你的幫忙！請跟隨
+        <span class="text-emerald-800 font-black">${story.partner.icon} ${story.partner.name}</span> 前往
+        <span class="text-emerald-800 font-black">${story.location.icon} ${story.location.name}</span>，一起尋找
+        <span class="text-amber-700 font-black">${story.item.icon} ${story.item.name}</span> 吧！
+      `;
+
+      // 更新書名與小讀者名字
+      document.getElementById('book-header-title').textContent = story.title;
+      document.getElementById('book-header-reader').textContent = name;
+      document.getElementById('qr-card-name').textContent = name;
+      document.getElementById('modal-child-name').textContent = name;
+
+      renderBookPage(0, 0);
+      generateShareQRCodes();
+    }
+
+    function renderBookPage(targetIndex, direction) {
+      const story = STORIES[currentState.storyId];
+      const targetPage = story.pages[targetIndex];
+      const currentPage = story.pages[currentState.pageIndex];
+
+      const applyPageData = (pageObj, idx) => {
+        document.getElementById('page-badge').textContent = `第 ${idx + 1} 頁 / 共 ${story.pages.length} 頁`;
+        document.getElementById('img-page-num').textContent = idx + 1;
+        document.getElementById('page-elements-tag').textContent = `${story.partner.icon} ${story.partner.name} • ${story.location.icon} ${story.location.name}`;
+        document.getElementById('page-story-text').textContent = pageObj.text;
+
+        const imgEl = document.getElementById('page-illustration');
+        imgEl.onerror = function() {
+          this.onerror = null;
+          this.src = buildFallbackWatercolorSVG(story, idx);
+        };
+        imgEl.src = pageObj.image;
+
+        // 更新頁碼指示圓點
+        const dotsContainer = document.getElementById('page-dots');
+        dotsContainer.innerHTML = story.pages.map((_, i) => `
+          <button type="button" onclick="jumpToPage(${i})" aria-label="跳至第 ${i + 1} 頁"
+            class="h-3 rounded-full transition-all cursor-pointer ${i === idx ? 'w-8 bg-[#C81D25]' : 'w-3 bg-amber-300 hover:bg-amber-400'}">
+          </button>
+        `).join('');
+
+        // 更新按鈕與書角捲起提示
+        document.getElementById('prev-page-btn').disabled = (idx === 0);
+        const nextBtnText = document.getElementById('next-btn-text');
+        const cornerHint = document.getElementById('page-corner-hint');
+        if (idx === story.pages.length - 1) {
+          nextBtnText.textContent = '已完成尋寶 🎉';
+          cornerHint.classList.add('hidden');
+        } else {
+          nextBtnText.textContent = '下一頁';
+          cornerHint.classList.remove('hidden');
+        }
+      };
+
+      // 無動畫（初次載入）
+      if (!direction) {
+        currentState.pageIndex = targetIndex;
+        applyPageData(targetPage, targetIndex);
+        return;
+      }
+
+      // 執行真實中軸 3D 翻紙動畫
+      if (currentState.isFlipping) return;
+      currentState.isFlipping = true;
+      playPaperRustleSound();
+
+      const flipLayer = document.getElementById('flip-animation-layer');
+      const isForward = direction > 0;
+
+      // 建立立體書頁：正面顯示翻頁前的右側文字頁，背面顯示翻過去的紙張光影與下一幕預告
+      const frontText = isForward ? currentPage.text : targetPage.text;
+      const frontPageNum = isForward ? (currentState.pageIndex + 1) : (targetIndex + 1);
+      const backBadge = isForward ? `第 ${targetIndex + 1} 幕` : `第 ${currentState.pageIndex + 1} 幕`;
+
+      flipLayer.className = `flipping-sheet ${isForward ? 'animate-flip-forward' : 'animate-flip-backward'}`;
+      flipLayer.innerHTML = `
+        <div class="flipping-sheet-front p-6 sm:p-8 md:p-10 flex flex-col justify-between">
+          <div>
+            <div class="mb-4">
+              <span class="bg-amber-200/80 text-amber-950 font-black text-xs sm:text-sm px-3 py-1 rounded-full">
+                第 ${frontPageNum} 頁 / 共 ${story.pages.length} 頁
+              </span>
+            </div>
+            <p class="text-xl sm:text-2xl md:text-[26px] font-bold text-gray-800 leading-[1.78] tracking-wide mt-4">
+              ${escapeHtml(frontText)}
+            </p>
+          </div>
+          <div class="flip-shade"></div>
+        </div>
+        <div class="flipping-sheet-back p-6">
+          <div class="text-center opacity-45 select-none">
+            <div class="text-5xl mb-2">${story.location.icon}</div>
+            <div class="text-sm font-black text-amber-900 tracking-widest">${backBadge}</div>
+          </div>
+        </div>
+      `;
+
+      // 若是向下一頁翻，底層右側立即預載目標新頁（當上層書頁向左掀開時自然露出新頁）
+      if (isForward) {
+        applyPageData(targetPage, targetIndex);
+      }
+
+      // 動畫進行到一半（書頁垂直於螢幕瞬間）切換左側插畫
+      setTimeout(() => {
+        if (!isForward) {
+          applyPageData(targetPage, targetIndex);
+        }
+      }, 330);
+
+      // 動畫結束後清理立體書頁層
+      setTimeout(() => {
+        currentState.pageIndex = targetIndex;
+        flipLayer.className = 'hidden';
+        flipLayer.innerHTML = '';
+        currentState.isFlipping = false;
+      }, 690);
+    }
+
+    function changePage(delta) {
+      if (currentState.isFlipping) return;
+      stopVoiceOnly();
+      const story = STORIES[currentState.storyId];
+      const nextIndex = currentState.pageIndex + delta;
+
+      if (nextIndex < 0) return;
+      if (nextIndex >= story.pages.length) {
+        // 最後一頁點擊「已完成尋寶」時彈出 QR Code 方便家長掃描
+        openQrModal();
+        return;
+      }
+
+      renderBookPage(nextIndex, delta);
+    }
+
+    function jumpToPage(idx) {
+      if (idx === currentState.pageIndex || currentState.isFlipping) return;
+      stopVoiceOnly();
+      const delta = idx > currentState.pageIndex ? 1 : -1;
+      renderBookPage(idx, delta);
+    }
+
+    function handleLeftPageClick() {
+      if (currentState.pageIndex > 0) {
+        changePage(-1);
+      }
+    }
+
+    function handleRightTextClick() {
+      const story = STORIES[currentState.storyId];
+      if (currentState.pageIndex < story.pages.length - 1) {
+        changePage(1);
+      }
+    }
+
+    // 支援平板/手機左右滑動翻頁
+    function setupSwipeGestures() {
+      const touchArea = document.getElementById('book-touch-area');
+      let startX = 0;
+
+      touchArea.addEventListener('touchstart', (e) => {
+        startX = e.changedTouches[0].screenX;
+      }, { passive: true });
+
+      touchArea.addEventListener('touchend', (e) => {
+        const endX = e.changedTouches[0].screenX;
+        const diffX = endX - startX;
+        if (Math.abs(diffX) > 45) {
+          if (diffX < 0) changePage(1);  // 向左滑 -> 下一頁
+          else changePage(-1);           // 向右滑 -> 上一頁
+        }
+      }, { passive: true });
+    }
+
+    // 若尚未上傳本地圖片，動態生成具水彩質感與第一人稱紅手套的預覽插畫
+    function buildFallbackWatercolorSVG(story, pageIdx) {
+      const isLibrary = story.location.id === 'library';
+      const bgTop = isLibrary ? '#3B2818' : '#7A2E4D';
+      const bgBottom = isLibrary ? '#D9A760' : '#F6B8D0';
+      const sceneEmojis = [
+        `${story.location.icon} ✨ 🎄`,
+        `${story.partner.icon} 💬 ❓`,
+        `🧤 📖 ${story.item.icon}`,
+        `🎅 ${story.partner.icon} 🎁`
+      ];
+      const sceneLabels = [
+        `走進${story.location.name}`,
+        `遇見${story.partner.name}`,
+        `發現${story.item.name}！`,
+        `聖誕老人開心道謝`
+      ];
+
+      const svg = `
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 800">
+          <defs>
+            <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="${bgTop}"/>
+              <stop offset="100%" stop-color="${bgBottom}"/>
+            </linearGradient>
+            <radialGradient id="glow" cx="50%" cy="45%" r="50%">
+              <stop offset="0%" stop-color="#FFF6CC" stop-opacity="0.85"/>
+              <stop offset="100%" stop-color="#FFF6CC" stop-opacity="0"/>
+            </radialGradient>
+          </defs>
+          <rect width="600" height="800" fill="url(#bg)"/>
+          <circle cx="300" cy="360" r="240" fill="url(#glow)"/>
+          <!-- 暖色光點 -->
+          <circle cx="120" cy="140" r="8" fill="#FFE082" opacity="0.8"/>
+          <circle cx="480" cy="180" r="10" fill="#FFE082" opacity="0.7"/>
+          <circle cx="160" cy="520" r="6" fill="#FFFFFF" opacity="0.7"/>
+          <circle cx="450" cy="490" r="9" fill="#FFE082" opacity="0.8"/>
+          <!-- 中央主題圖示 -->
+          <text x="300" y="365" font-size="115" text-anchor="middle" dominant-baseline="middle">${sceneEmojis[pageIdx]}</text>
+          <!-- 第一人稱溫暖紅手套 -->
+          <g transform="translate(155, 630) rotate(-12)">
+            <rect x="0" y="45" width="75" height="140" rx="20" fill="#1E6B43"/>
+            <rect x="-5" y="0" width="85" height="95" rx="42" fill="#D62828"/>
+            <ellipse cx="75" cy="48" rx="22" ry="16" fill="#D62828"/>
+          </g>
+          <g transform="translate(365, 615) rotate(12)">
+            <rect x="0" y="45" width="75" height="140" rx="20" fill="#1E6B43"/>
+            <rect x="-5" y="0" width="85" height="95" rx="42" fill="#D62828"/>
+            <ellipse cx="0" cy="48" rx="22" ry="16" fill="#D62828"/>
+          </g>
+          <!-- 底部預覽提示標籤 -->
+          <rect x="70" y="470" width="460" height="74" rx="20" fill="rgba(255,253,247,0.92)"/>
+          <text x="300" y="502" font-family="sans-serif" font-size="24" font-weight="bold" fill="#5C3A18" text-anchor="middle">${sceneLabels[pageIdx]}</text>
+          <text x="300" y="530" font-family="sans-serif" font-size="16" fill="#8C6D46" text-anchor="middle">（放入 assets/images/${story.id}_${pageIdx + 1}.jpg 即顯示專屬插畫）</text>
+        </svg>
+      `;
+      return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+    }
+
+    /* =====================================================================
+       五、 雙音軌系統：聖誕八音盒背景音樂 ＋ 故事語音朗讀 ＋ 翻紙音效
+       ===================================================================== */
+    let audioCtx = null;
+    let bgmTimer = null;
+
+    function getAudioContext() {
+      if (!audioCtx) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContext();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      return audioCtx;
+    }
+
+    // 切換背景音樂（優先嘗試外部 MP3，若無則使用內建柔和聖誕八音盒旋律）
+    function toggleBGM() {
+      if (currentState.bgmPlaying) {
+        stopBGM();
+      } else {
+        startBGM();
+      }
+    }
+
+    function startBGM() {
+      currentState.bgmPlaying = true;
+      updateBgmButtonUI(true);
+
+      const story = STORIES[currentState.storyId];
+      const bgmType = story ? story.location.bgmType : 'library';
+      const externalPlayer = document.getElementById('external-bgm-player');
+      externalPlayer.src = `assets/audio/bgm_${bgmType}.mp3`;
+      externalPlayer.volume = 0.25;
+
+      // 嘗試播放外部 MP3；若檔案不存在則無縫啟動內建 Web Audio 八音盒
+      externalPlayer.play().catch(() => {
+        startSynthesizedMusicBox(bgmType);
+      });
+    }
+
+    function stopBGM() {
+      currentState.bgmPlaying = false;
+      updateBgmButtonUI(false);
+
+      const externalPlayer = document.getElementById('external-bgm-player');
+      externalPlayer.pause();
+
+      if (bgmTimer) {
+        clearInterval(bgmTimer);
+        bgmTimer = null;
+      }
+    }
+
+    function updateBgmButtonUI(isPlaying) {
+      const icon = document.getElementById('bgm-icon');
+      const label = document.getElementById('bgm-label');
+      if (isPlaying) {
+        icon.textContent = '🎵';
+        label.textContent = '背景音樂：開';
+      } else {
+        icon.textContent = '🔇';
+        label.textContent = '背景音樂：關';
+      }
+    }
+
+    // 內建聖誕八音盒合成器（圖書館：平安夜溫柔版 / 糖果屋：Jingle Bells 輕快版）
+    function startSynthesizedMusicBox(type) {
+      if (bgmTimer) clearInterval(bgmTimer);
+      const ctx = getAudioContext();
+
+      const N = {
+        C4: 261.63, D4: 293.66, E4: 329.63, F4: 349.23, G4: 392.00, A4: 440.00, B4: 493.88,
+        C5: 523.25, D5: 587.33, E5: 659.25, F5: 698.46, G5: 783.99, R: 0
+      };
+
+      const libraryMelody = [
+        N.G4, N.A4, N.G4, N.E4, N.R, N.G4, N.A4, N.G4, N.E4, N.R,
+        N.D5, N.D5, N.B4, N.R, N.C5, N.C5, N.G4, N.R,
+        N.A4, N.A4, N.C5, N.B4, N.A4, N.G4, N.A4, N.G4, N.E4, N.R
+      ];
+
+      const candyMelody = [
+        N.E5, N.E5, N.E5, N.R, N.E5, N.E5, N.E5, N.R,
+        N.E5, N.G5, N.C5, N.D5, N.E5, N.R, N.R, N.R,
+        N.F5, N.F5, N.F5, N.F5, N.F5, N.E5, N.E5, N.E5,
+        N.E5, N.D5, N.D5, N.E5, N.D5, N.R, N.G5, N.R
+      ];
+
+      const melody = type === 'candy' ? candyMelody : libraryMelody;
+      const tempoMs = type === 'candy' ? 320 : 480;
+      let step = 0;
+
+      bgmTimer = setInterval(() => {
+        if (!currentState.bgmPlaying) return;
+        const freq = melody[step % melody.length];
+        step++;
+        if (freq > 0) {
+          playMusicBoxNote(ctx, freq, 0.045);
+        }
+      }, tempoMs);
+    }
+
+    function playMusicBoxNote(ctx, freq, volume) {
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now);
+
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.exponentialRampToValueAtTime(volume, now + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.75);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.8);
+    }
+
+    // 語音朗讀本頁故事（優先播放 assets/audio/voice_XX_X.mp3，若無則啟動瀏覽器粵語/中文語音朗讀）
+    function toggleReadAloud() {
+      if (currentState.voicePlaying) {
+        stopVoiceOnly();
+      } else {
+        startReadAloud();
+      }
+    }
+
+    function startReadAloud() {
+      stopVoiceOnly();
+      const story = STORIES[currentState.storyId];
+      const page = story.pages[currentState.pageIndex];
+      const voicePlayer = document.getElementById('external-voice-player');
+
+      currentState.voicePlaying = true;
+      updateVoiceButtonUI(true);
+
+      // 嘗試播放預錄音檔（例如 assets/audio/voice_01_1.mp3）
+      voicePlayer.src = `assets/audio/voice_${story.id}_${currentState.pageIndex + 1}.mp3`;
+      voicePlayer.onended = () => stopVoiceOnly();
+      voicePlayer.play().catch(() => {
+        // 若無預錄音檔，使用瀏覽器內建語音合成（優先選取香港粵語 zh-HK）
+        if ('speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+          const utterance = new SpeechSynthesisUtterance(page.text);
+          const voices = window.speechSynthesis.getVoices();
+          const hkVoice = voices.find(v => v.lang.includes('zh-HK')) || voices.find(v => v.lang.includes('zh'));
+          if (hkVoice) utterance.voice = hkVoice;
+          utterance.lang = 'zh-HK';
+          utterance.rate = 0.92; // 適合幼稚園生的溫柔語速
+          utterance.pitch = 1.08;
+          utterance.onend = () => stopVoiceOnly();
+          utterance.onerror = () => stopVoiceOnly();
+          window.speechSynthesis.speak(utterance);
+        } else {
+          stopVoiceOnly();
+          showToast('此瀏覽器暫不支援自動朗讀');
+        }
+      });
+    }
+
+    function stopVoiceOnly() {
+      currentState.voicePlaying = false;
+      updateVoiceButtonUI(false);
+      const voicePlayer = document.getElementById('external-voice-player');
+      voicePlayer.pause();
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    }
+
+    function updateVoiceButtonUI(isReading) {
+      const icon = document.getElementById('voice-icon');
+      const label = document.getElementById('voice-label');
+      if (isReading) {
+        icon.textContent = '⏹️';
+        label.textContent = '停止朗讀';
+      } else {
+        icon.textContent = '🗣️';
+        label.textContent = '朗讀本頁';
+      }
+    }
+
+    function stopAllAudio() {
+      stopBGM();
+      stopVoiceOnly();
+    }
+
+    // 互動音效：扭蛋轉動、抽中驚喜
+    function playSpinSound() {
+      try {
+        const ctx = getAudioContext();
+        [330, 392, 440, 523].forEach((f, i) => {
+          setTimeout(() => playMusicBoxNote(ctx, f, 0.08), i * 85);
+        });
+      } catch (e) {}
+    }
+
+    function playSuccessChime() {
+      try {
+        const ctx = getAudioContext();
+        [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
+          setTimeout(() => playMusicBoxNote(ctx, f, 0.12), i * 110);
+        });
+      } catch (e) {}
+    }
+
+    // 合成真實實體紙張「沙沙」翻頁音效（白噪音帶通濾波器模擬紙張摩擦聲）
+    function playPaperRustleSound() {
+      try {
+        const ctx = getAudioContext();
+        const duration = 0.42;
+        const bufferSize = Math.floor(ctx.sampleRate * duration);
+        const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = (Math.random() * 2 - 1) * Math.sin((i / bufferSize) * Math.PI);
+        }
+
+        const noise = ctx.createBufferSource();
+        noise.buffer = buffer;
+
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(900, ctx.currentTime);
+        filter.frequency.exponentialRampToValueAtTime(2400, ctx.currentTime + duration);
+        filter.Q.value = 1.4;
+
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(0.01, ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.22, ctx.currentTime + 0.12);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(ctx.destination);
+
+        noise.start();
+        noise.stop(ctx.currentTime + duration);
+      } catch (e) {}
+    }
+
+    /* =====================================================================
+       六、 即時 QR Code 生成（供家長掃碼帶走個人化繪本）
+       ===================================================================== */
+    function getShareableUrl() {
+      const url = new URL(window.location.href);
+      url.searchParams.set('name', currentState.childName);
+      url.searchParams.set('story', currentState.storyId);
+      return url.toString();
+    }
+
+    function generateShareQRCodes() {
+      const shareUrl = getShareableUrl();
+
+      const inlineEl = document.getElementById('inline-qrcode');
+      inlineEl.innerHTML = '';
+      new QRCode(inlineEl, {
+        text: shareUrl,
+        width: 112,
+        height: 112,
+        colorDark: '#164A32',
+        colorLight: '#FFFFFF',
+        correctLevel: QRCode.CorrectLevel.M
+      });
+
+      const modalEl = document.getElementById('modal-qrcode');
+      modalEl.innerHTML = '';
+      new QRCode(modalEl, {
+        text: shareUrl,
+        width: 210,
+        height: 210,
+        colorDark: '#164A32',
+        colorLight: '#FFFFFF',
+        correctLevel: QRCode.CorrectLevel.M
+      });
+    }
+
+    function openQrModal() {
+      generateShareQRCodes();
+      const modal = document.getElementById('qr-modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeQrModal() {
+      const modal = document.getElementById('qr-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function copyShareLink() {
+      const shareUrl = getShareableUrl();
+      const tempInput = document.createElement('input');
+      tempInput.value = shareUrl;
+      document.body.appendChild(tempInput);
+      tempInput.select();
+      document.execCommand('copy');
+      document.body.removeChild(tempInput);
+      showToast('已複製專屬繪本連結！📋');
+    }
+
+    /* =====================================================================
+       七、 飄雪背景動畫與工具函式
+       ===================================================================== */
+    function initSnowfall() {
+      const canvas = document.getElementById('snow-canvas');
+      const ctx = canvas.getContext('2d');
+      let width = canvas.width = window.innerWidth;
+      let height = canvas.height = window.innerHeight;
+
+      window.addEventListener('resize', () => {
+        width = canvas.width = window.innerWidth;
+        height = canvas.height = window.innerHeight;
+      });
+
+      const flakes = Array.from({ length: 55 }, () => ({
+        x: Math.random() * width,
+        y: Math.random() * height,
+        r: Math.random() * 3.2 + 1.2,
+        speedY: Math.random() * 1.1 + 0.4,
+        speedX: Math.random() * 0.6 - 0.3,
+        opacity: Math.random() * 0.6 + 0.25
+      }));
+
+      function drawSnow() {
+        ctx.clearRect(0, 0, width, height);
+        flakes.forEach(f => {
+          ctx.beginPath();
+          ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(255, 255, 255, ${f.opacity})`;
+          ctx.fill();
+
+          f.y += f.speedY;
+          f.x += f.speedX;
+          if (f.y > height) {
+            f.y = -5;
+            f.x = Math.random() * width;
+          }
+          if (f.x > width) f.x = 0;
+          if (f.x < 0) f.x = width;
+        });
+        requestAnimationFrame(drawSnow);
+      }
+      drawSnow();
+    }
+
+    let toastTimeout = null;
+    function showToast(msg) {
+      const box = document.getElementById('toast-box');
+      const text = document.getElementById('toast-text');
+      text.innerHTML = `<span>🎄</span><span>${escapeHtml(msg)}</span>`;
+      box.classList.remove('opacity-0', '-translate-y-4');
+      box.classList.add('opacity-100', 'translate-y-0');
+
+      if (toastTimeout) clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        box.classList.add('opacity-0', '-translate-y-4');
+        box.classList.remove('opacity-100', 'translate-y-0');
+      }, 2400);
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/[&<>"']/g, (m) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+      }[m]));
+    }
+  </script>
+</body>
+</html>
